@@ -8,6 +8,8 @@ Parameters:
     MinLength: '1'
     MaxLength: '64'
     Default: Ec2SecurityGroup
+  DefaultVPCId:
+    Type: AWS::EC2::VPC::Id
 
 
 Resources:
@@ -16,7 +18,7 @@ Resources:
     Properties:
       GroupDescription: Security group for EC2 Instance
       GroupName: !Ref SecrurityGroupName
-      VpcId: vpc-007cfe1bfc5e19b34
+      VpcId: !Ref DefaultVPCId
       SecurityGroupIngress:
         - IpProtocol: TCP
           FromPort: 22
@@ -52,9 +54,15 @@ Resources:
             PYTHON_VERSION="$(python --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
             CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
             export AIRFLOW_HOME=~/airflow
+            pip install "apache-airflow==${AIRFLOW_VERSION}" --constraint "${CONSTRAINT_URL}"
             airflow db init
             airflow users create --username admin_parker --firstname Peter --lastname Parker --role Admin --password admin_parker --email spiderman@superhero.org
             airflow scheduler -D
             airflow webserver --port 8080 -D
-
-
+  
+Outputs:
+    EC2Instance:
+      Description: Details of EC2 created
+      Value: !Join ['',['http://', !GetAtt EC2Creation.PublicIp, ':8080']]
+      Export:
+        Name: !Sub "${AWS::StackName}-PublicIp"
