@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: EC2 Instance Creation with Airflow installation
+
+Parameters:
+  SecrurityGroupName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Ec2SecurityGroup
+
+
+Resources:
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EC2 Instance
+      GroupName: !Ref SecrurityGroupName
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0       
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  EC2Creation:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-01816d07b1128cd2d
+      KeyName: EC2keyCFT
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+      UserData: !Base64 
+          'Fn::Join':
+            - ''
+            - - |
+                #!/bin/bash
+              - |
+              - sudo yum update
+              - |
+              - sudo yum -y install python3 python3-pip
+              - |
+              - mkdir airflow_project 
+              - |
+              - cd airflow_project
+              - | 
+              - virtualenv airflow_venv
+              - | 
+              - source airflow_venv/bin/activate
+              - |
+              - AIRFLOW_VERSION=2.6.2 
+              - |
+              - PYTHON_VERSION="$(python --version | cut -d " " -f 2 | cut -d "." -f 1-2)"
+              - |
+              - CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+              - |
+              - export AIRFLOW_HOME=~/airflow
+              - |
+              - airflow db init
+              - |
+              - airflow users create --username admin_parker --firstname Peter --lastname Parker --role Admin --password admin_parker --email spiderman@superhero.org
+              - |
+              - airflow scheduler -D
+              - |
+              - airflow webserver --port 8080 -D
+              - |
+
