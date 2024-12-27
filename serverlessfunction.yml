@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: KMS key creation
+
+Parameters:
+  LambdaRoleName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Lambda-Role-Name
+  LambdaPolicyName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Lambda-Policy-Name
+  LambdaFunctionName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Lambda-Func-Name
+  LambdaS3Bucket:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: lambda-s3-bucket-damlepra
+    
+
+Resources:
+  MyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaRoleName
+      Description: IAM role for Lambda
+      ManagedPolicyArns:
+        - !Ref LambdaPolicy
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - lambda.amazonaws.com
+            Action: 
+                - sts:AssumeRole
+      
+  LambdaPolicy:   
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Ref LambdaPolicyName
+      Description: Lambda Policy Creation automation
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: logs:CreateLogGroup
+            Resource: !Join ['',['arn',':',!Ref AWS::Partition,':',!Ref AWS::Region,':',!Ref AWS::AccountId,':','log-group',':','aws/lambda/',!Ref LambdaFunctionName, ':*']]
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource: '*'
+  
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['',['/aws/lambda/', !Ref LambdaFunctionName]]
+      RetentionInDays: 5
+
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      CodeUri: 
+        Bucket: my-bucket-damlepra
+        Key: my-lambda-app.zip
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Handler: index.lambda_handler
+      Runtime: python3.12
+      Architectures:
+        - x86_64
+      EphemeralStorage:
+        Size: 512
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 21600
+        MaximumRetryAttempts: 2
+      PackageType: Zip
+      Role: !GetAtt MyRole.Arn
+      Events:
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: LambdaBucket
+            Events:
+              - s3:ObjectCreated:*
+  
+  LambdaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref LambdaS3Bucket

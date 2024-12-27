@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: KMS key creation
+
+Parameters:
+  LambdaRoleName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Lambda-Role-Name
+  LambdaPolicyName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Lambda-Policy-Name
+  LambdaFunctionName:
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    Default: Lambda-Func-Name
+    
+
+Resources:
+  MyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaRoleName
+      Description: IAM role for Lambda
+      ManagedPolicyArns:
+        - !Ref LambdaPolicy
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - lambda.amazonaws.com
+            Action: 
+                - sts:AssumeRole
+      
+  LambdaPolicy:   
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Ref LambdaPolicyName
+      Description: Lambda Policy Creation automation
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: logs:CreateLogGroup
+            Resource: !Join ['',['arn',':',!Ref AWS::Partition,':',!Ref AWS::Region,':',!Ref AWS::AccountId,':','log-group',':','aws/lambda/',!Ref LambdaFunctionName, ':*']]
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - s3:*
+            Resource: '*'
+
+  LambdaFunction:
+      Type: AWS::Lambda::Function
+      Properties:
+        Description: This is a test Lambda function
+        FunctionName: !Ref LambdaFunctionName
+        Role: !GetAtt MyRole.Arn
+        Runtime: python3.12
+        Handler: index.lambda_handler
+        Timeout: 900 
+        Code: 
+          S3Bucket: lambda-s3-sourcecode-prajdamle
+          S3Key: my-lambda-app.zip
