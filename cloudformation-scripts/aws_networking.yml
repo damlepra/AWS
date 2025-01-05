@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Cloudformation script for creating VPC, Subnets, Internet Gateway, and route tables
+
+Resources:
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags: 
+        - Key: Name
+          Value: MyTestVPC
+  
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AssignIpv6AddressOnCreation: false
+      AvailabilityZone: !Select
+          - 0
+          - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: 10.0.0.0/24
+      Tags: 
+        - Key: "Name"
+          Value: "PrivateSubnet"
+      VpcId: !Ref MyVPC
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: True
+      AvailabilityZone: !Select
+          - 0
+          - Fn::GetAZs: !Ref 'AWS::Region'
+      CidrBlock: 10.0.1.0/24
+      Tags: 
+        - Key: "Name"
+          Value: "PublicSubnet"
+      VpcId: !Ref MyVPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags: 
+        - Key: "Name"
+          Value: "My Internet Gateway"
+  
+  IGWVPCAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+        InternetGatewayId: !Ref InternetGateway
+        VpcId: !Ref MyVPC
+  
+  MyRouteTablePrivate:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+  
+  MyRouteTablePubic:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+  
+  AssociatePrivateRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+         RouteTableId: !Ref MyRouteTablePrivate
+         SubnetId: !Ref PrivateSubnet
+  
+  AssociatePublicRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+         RouteTableId: !Ref MyRouteTablePubic
+         SubnetId: !Ref PublicSubnet
+
+  AddInternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref MyRouteTablePubic
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+Outputs:
+  VPC:
+    Description: VPC created successfully
+    Value: !Ref MyVPC
+  InternetGateway:
+    Description: Internet Gateway created successfully and attached to VPC 
+    Value: !Ref InternetGateway
